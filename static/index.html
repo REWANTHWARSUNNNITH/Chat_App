@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chat</title>
+<style>
+  :root {
+    --panel-header: #202c33;
+    --sidebar-bg: #111b21;
+    --sidebar-hover: #202c33;
+    --sidebar-active: #2a3942;
+    --chat-bg: #0b141a;
+    --bubble-out: #005c4b;
+    --bubble-in: #202c33;
+    --text-primary: #e9edef;
+    --text-secondary: #8696a0;
+    --accent: #00a884;
+    --divider: #2a3942;
+    --input-bg: #2a3942;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; margin: 0; background: #0c1317; color: var(--text-primary); height: 100vh; overflow: hidden; }
+
+  #auth-screen { max-width: 380px; margin: 80px auto; background: var(--panel-header); border-radius: 8px; padding: 36px 32px; box-shadow: 0 4px 24px rgba(0,0,0,.4); }
+  #auth-screen .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; }
+  #auth-screen .brand .dot { width: 36px; height: 36px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  #auth-screen .brand h1 { font-size: 20px; margin: 0; font-weight: 500; }
+  #auth-screen input { width: 100%; padding: 12px; margin: 6px 0; background: var(--sidebar-bg); border: 1px solid var(--divider); border-radius: 6px; color: var(--text-primary); font-size: 14px; }
+  #auth-screen input:focus { outline: none; border-color: var(--accent); }
+  #auth-screen button { width: 100%; padding: 12px; margin-top: 10px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .btn-primary { background: var(--accent); color: #0c1317; }
+  .btn-primary:hover { background: #06cf9c; }
+  .btn-secondary { background: transparent; color: var(--text-secondary); border: 1px solid var(--divider); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  #auth-error { color: #f15c6d; font-size: 13px; margin-top: 8px; min-height: 16px; }
+
+  #app-screen { display: flex; height: 100vh; }
+
+  #sidebar { width: 340px; min-width: 280px; background: var(--sidebar-bg); display: flex; flex-direction: column; border-right: 1px solid var(--divider); }
+  #sidebar-header { background: var(--panel-header); padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; }
+  #sidebar-header .me { display: flex; align-items: center; gap: 10px; }
+  #sidebar-header .avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: #0c1317; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+  #sidebar-header .me-name { font-size: 15px; font-weight: 500; }
+  #sidebar-title { padding: 12px 16px 4px; font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .5px; }
+
+  #user-list { flex: 1; overflow-y: auto; }
+  .user-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.03); }
+  .user-item:hover { background: var(--sidebar-hover); }
+  .user-item.active { background: var(--sidebar-active); }
+  .user-avatar { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; flex-shrink: 0; color: #0c1317; position: relative; }
+  .online-badge { width: 11px; height: 11px; border-radius: 50%; background: var(--accent); border: 2px solid var(--sidebar-bg); position: absolute; bottom: -1px; right: -1px; }
+  .user-meta { min-width: 0; flex: 1; }
+  .user-name { font-size: 15px; font-weight: 500; }
+  .user-sub { font-size: 12.5px; color: var(--text-secondary); }
+  .unread-badge {
+    background: #f15c6d; color: #fff; font-size: 12px; font-weight: 700;
+    min-width: 20px; height: 20px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 6px; flex-shrink: 0;
+  }
+
+  #chat-area { flex: 1; display: flex; flex-direction: column; background-color: var(--chat-bg); background-image: radial-gradient(circle at 25% 15%, rgba(255,255,255,0.015) 0, transparent 40%), radial-gradient(circle at 75% 65%, rgba(255,255,255,0.015) 0, transparent 40%); }
+  #chat-header { background: var(--panel-header); padding: 12px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--divider); }
+  #chat-header .user-avatar { width: 38px; height: 38px; font-size: 14px; }
+  #chat-header-info .name { font-size: 15px; font-weight: 500; }
+  #chat-header-info .status { font-size: 12.5px; color: var(--text-secondary); }
+
+  #empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-secondary); text-align: center; padding: 40px; }
+  #empty-state .dot { width: 70px; height: 70px; border-radius: 50%; background: var(--panel-header); display: flex; align-items: center; justify-content: center; font-size: 30px; margin-bottom: 16px; }
+
+  #messages { flex: 1; overflow-y: auto; padding: 20px 8%; display: flex; flex-direction: column; gap: 2px; }
+  .bubble-row { display: flex; margin: 3px 0; }
+  .bubble-row.out { justify-content: flex-end; }
+  .bubble-row.in { justify-content: flex-start; }
+  .bubble { max-width: 65%; padding: 7px 10px 9px 10px; border-radius: 8px; font-size: 14.2px; line-height: 1.35; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,.3); word-wrap: break-word; }
+  .bubble.out { background: var(--bubble-out); color: var(--text-primary); border-top-right-radius: 0; }
+  .bubble.in { background: var(--bubble-in); color: var(--text-primary); border-top-left-radius: 0; }
+  .bubble .time { font-size: 10.5px; color: rgba(233,237,239,0.5); float: right; margin: 4px 0 -3px 8px; }
+
+  #input-row { background: var(--panel-header); padding: 12px 16px; display: flex; align-items: center; gap: 10px; }
+  #input-row input { flex: 1; padding: 11px 16px; border-radius: 24px; border: none; background: var(--input-bg); color: var(--text-primary); font-size: 14px; }
+  #input-row input:focus { outline: none; }
+  #input-row button { width: 42px; height: 42px; border-radius: 50%; border: none; background: var(--accent); color: #0c1317; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  #input-row button:hover { background: #06cf9c; }
+
+  .hidden { display: none !important; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-thumb { background: var(--divider); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div id="auth-screen">
+  <div class="brand"><div class="dot">💬</div><h1>Chat</h1></div>
+  <input id="username" placeholder="Username">
+  <input id="password" type="password" placeholder="Password">
+  <button class="btn-primary" onclick="login()">Log in</button>
+  <button class="btn-secondary" onclick="signup()">Create account</button>
+  <div id="auth-error"></div>
+</div>
+
+<div id="app-screen" class="hidden">
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <div class="me">
+        <div class="avatar" id="me-avatar"></div>
+        <div class="me-name" id="me-name"></div>
+      </div>
+    </div>
+    <div id="sidebar-title">Chats</div>
+    <div id="user-list"></div>
+  </div>
+
+  <div id="chat-area">
+    <div id="empty-state">
+      <div class="dot">💬</div>
+      <div>Select a person to start chatting</div>
+    </div>
+    <div id="active-chat" class="hidden" style="display:flex; flex-direction:column; height:100%;">
+      <div id="chat-header">
+        <div class="user-avatar" id="chat-avatar"></div>
+        <div id="chat-header-info">
+          <div class="name" id="chat-user-name"></div>
+          <div class="status" id="chat-user-status">offline</div>
+        </div>
+      </div>
+      <div id="messages"></div>
+      <div id="input-row">
+        <input id="msg-input" placeholder="Type a message" onkeydown="if(event.key==='Enter') sendMessage()">
+        <button onclick="sendMessage()">➤</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let token = null;
+let username = null;
+let myUserId = null;
+let currentPeer = null; // { id, username }
+let socket = null;
+let onlineIds = new Set();
+let unreadCounts = {}; // userId -> count
+let users = []; // all other users
+
+async function signup() { await authRequest("/api/auth/signup"); }
+async function login() { await authRequest("/api/auth/login"); }
+
+async function authRequest(url) {
+  const u = document.getElementById("username").value.trim();
+  const p = document.getElementById("password").value;
+  const errEl = document.getElementById("auth-error");
+  errEl.textContent = "";
+  if (!u || !p) { errEl.textContent = "Enter username and password"; return; }
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: u, password: p })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      errEl.textContent = err.detail || "Error";
+      return;
+    }
+    const data = await res.json();
+    token = data.access_token;
+    username = data.username;
+    myUserId = data.user_id;
+    document.getElementById("auth-screen").classList.add("hidden");
+    document.getElementById("app-screen").classList.remove("hidden");
+    document.getElementById("me-name").textContent = username;
+    document.getElementById("me-avatar").textContent = initials(username);
+
+    await loadUsers();
+    connectSocket();
+  } catch (e) {
+    errEl.textContent = "Network error";
+  }
+}
+
+function initials(name) { return name.slice(0, 2).toUpperCase(); }
+
+function avatarColor(seed) {
+  const colors = ["#00a884","#25d366","#128c7e","#34b7f1","#7f66ff","#f15c6d","#f5a623"];
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+  return colors[Math.abs(hash) % colors.length];
+}
+
+async function loadUsers() {
+  const res = await fetch("/api/users", { headers: { Authorization: "Bearer " + token } });
+  users = await res.json();
+  renderUserList();
+}
+
+function renderUserList() {
+  const list = document.getElementById("user-list");
+  list.innerHTML = "";
+  users.forEach(u => {
+    const isOnline = onlineIds.has(u.id);
+    const unread = unreadCounts[u.id] || 0;
+    const div = document.createElement("div");
+    div.className = "user-item";
+    div.id = "user-" + u.id;
+    if (currentPeer && currentPeer.id === u.id) div.classList.add("active");
+    div.onclick = () => openChat(u);
+    div.innerHTML = `
+      <div class="user-avatar" style="background:${avatarColor(u.username)}">
+        ${initials(u.username)}
+        ${isOnline ? '<span class="online-badge"></span>' : ''}
+      </div>
+      <div class="user-meta">
+        <div class="user-name">${escapeHtml(u.username)}</div>
+        <div class="user-sub">${isOnline ? 'Online' : 'Offline'}</div>
+      </div>
+      ${unread > 0 ? `<div class="unread-badge">${unread > 99 ? '99+' : unread}</div>` : ''}`;
+    list.appendChild(div);
+  });
+}
+
+function connectSocket() {
+  const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+  socket = new WebSocket(`${protocol}//${location.host}/ws?token=${token}`);
+
+  socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (data.type === "message") {
+      const isForCurrentChat = currentPeer && (data.sender_id === currentPeer.id || data.recipient_id === currentPeer.id);
+      if (isForCurrentChat) {
+        appendMessage(data.sender_id === myUserId ? username : data.sender_username, data.sender_id === myUserId, data.content, data.created_at);
+      } else if (data.sender_id !== myUserId) {
+        unreadCounts[data.sender_id] = (unreadCounts[data.sender_id] || 0) + 1;
+        renderUserList();
+      }
+    } else if (data.type === "presence") {
+      onlineIds = new Set(data.online_user_ids);
+      renderUserList();
+      if (currentPeer) {
+        const online = onlineIds.has(currentPeer.id);
+        document.getElementById("chat-user-status").textContent = online ? "Online" : "Offline";
+      }
+    }
+  };
+}
+
+async function openChat(user) {
+  currentPeer = user;
+  unreadCounts[user.id] = 0;
+  document.querySelectorAll(".user-item").forEach(d => d.classList.remove("active"));
+  document.getElementById("user-" + user.id).classList.add("active");
+
+  document.getElementById("empty-state").classList.add("hidden");
+  document.getElementById("active-chat").classList.remove("hidden");
+  document.getElementById("active-chat").style.display = "flex";
+
+  document.getElementById("chat-user-name").textContent = user.username;
+  document.getElementById("chat-avatar").textContent = initials(user.username);
+  document.getElementById("chat-avatar").style.background = avatarColor(user.username);
+  document.getElementById("chat-user-status").textContent = onlineIds.has(user.id) ? "Online" : "Offline";
+  renderUserList();
+
+  const res = await fetch(`/api/dm/${user.id}/messages`, { headers: { Authorization: "Bearer " + token } });
+  const messages = await res.json();
+  const msgBox = document.getElementById("messages");
+  msgBox.innerHTML = "";
+  messages.forEach(m => appendMessage(m.sender_username, m.sender_id !== user.id, m.content, m.created_at));
+}
+
+function formatTime(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function appendMessage(senderName, isMe, content, createdAt) {
+  const msgBox = document.getElementById("messages");
+  const row = document.createElement("div");
+  row.className = "bubble-row " + (isMe ? "out" : "in");
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble " + (isMe ? "out" : "in");
+  bubble.innerHTML = escapeHtml(content) + `<span class="time">${formatTime(createdAt)}</span>`;
+
+  row.appendChild(bubble);
+  msgBox.appendChild(row);
+  msgBox.scrollTop = msgBox.scrollHeight;
+}
+
+function sendMessage() {
+  const input = document.getElementById("msg-input");
+  const content = input.value.trim();
+  if (!content || !currentPeer || !socket || socket.readyState !== 1) return;
+  socket.send(JSON.stringify({ content, to: currentPeer.id }));
+  input.value = "";
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+</script>
+
+</body>
+</html>
